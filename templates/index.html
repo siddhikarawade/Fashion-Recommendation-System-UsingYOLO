@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' 
+      rel="stylesheet"/>
+      <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Fashion Recommendation</title>
+  </head>
+  <style>
+    body {
+        background-image: url("{{ url_for('static', filename='images/bg6.jpeg') }}");
+        background-size: cover;
+        background-position: center;
+    }
+</style>
+<body>
+<header class="header">
+  <nav class="navbar">
+    <div class="navdiv">
+      <div class="logo">
+        <a href="{{ url_for('home') }}">Fashion Recommendation</a>
+      </div>
+      <ul class="nav__links">
+        <li class="link"><a href="{{ url_for('home') }}"><i class='bx bxs-home'></i>  Home</a></li>
+        <li>
+          <a class="btn1" style="margin-left: 15px;" href="{{ url_for('login') }}">SIGN IN</a>
+        </li>
+        <li>
+          <a class="btn1" style="margin-left: 15px;" href="{{ url_for('register') }}">SIGN UP</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  
+      </header>
+    <div class="content">
+        <h1>Welcome</h1>
+        <h2>Find your Perfect look with</h2><br><br>
+        <h2><span style="font-size:30px;"> 'AI-powered Fashion Recommendations'</span></h2><br>
+        <p>
+          Discover your perfect style with AI-powered fashion recommendations tailored just for you.
+          Whether you're looking for trendy outfits, timeless classics, or personalized suggestions based 
+          on your preferences, we've got you covered.
+        </p>
+        <h2>Your style,your way! </h2>
+    </div>
+
+</body>
+</html>

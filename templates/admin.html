@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container mt-4">
+    <h1 class="text-center mb-4">Admin Panel</h1>
+    <p class="text-center">Place your raw dataset (with train, valid, test folders and data.yaml) in the <strong>preprocess_input</strong> folder.</p>
+    <div class="text-center">
+      <form action="{{ url_for('start_preprocessing') }}" method="post">
+        <button type="submit" class="btn btn-danger">Run Preprocessing</button>
+      </form>
+    </div>
+    <div class="text-center mt-4">
+      <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
+    </div>
+  </div>
+</body>
+</html>
+

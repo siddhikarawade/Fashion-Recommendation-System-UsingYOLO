@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fashion Recommendation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  
+  <style>
+    body {
+      background-image: url("{{ url_for('static', filename='images/bg4.jpg') }}");
+      background-size: cover;
+      background-position: center;
+    }
+        #uploadContainer {
+        display: none;
+        margin-top: 0px;
+        justify-content: center;
+        align-items: center;
+        text-align:center;
+      }
+      .text {
+        flex: 1;
+        max-width: 600px;
+      }
+  
+      .upload-box {
+        border: 2px dashed #888;
+        padding: 30px 40px;
+        border-radius: 20px;
+        background-color: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        transition: 0.3s ease;
+        width: 400px;
+        max-width: 90%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+  
+      .upload-box:hover {
+        border-color: #222;
+        background-color: #fdfdfd;
+      }
+  
+      .upload-box input[type="file"] {
+        font-size: 1rem;
+        padding: 10px;
+        border: none;
+        margin-top: 10px;
+      }
+  
+      .upload-box button[type="submit"] {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #222;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+  
+      .upload-box button[type="submit"]:hover {
+        background-color: #444;
+      }
+  
+  </style>
+</head>
+<body>
+  <header class="header">
+    <nav class="navbar">
+        <div class="navdiv">
+          <div class="logo"><a href="{{ url_for('home') }}">Fashion Recommendation</a></div>
+          <ul class="nav__links">
+            <li>
+              <a class="btn1" href="{{ url_for('logout') }}">Logout</a>
+            </li>
+            <li>
+              <div class="profile-dropdown">
+                <img src="{{ url_for('static', filename='images/profile.jpg') }}" alt="Profile" class="profile-icon">
+                <div class="dropdown-content">
+                  <p>{{ session['username'] }}</p>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </nav>
+  </header>
+
+  <div class="main">
+    <div class="box1">
+      <div class="text">
+        <h1>Fashion Recommendation</h1><br><hr><br>
+        <h2>Your Personalized Fashion Picks ✨</h2><br>
+        <h2>💫 Share your style, and we’ll recommend looks curated for you.</h2><br>
+        <p>Upload a photo or start your camera to receive outfit suggestions tailored to your look and vibe.</p><br>
+        <h3>Select how you want to share your current style with us.</h3><br>
+      </div>
+
+      <div id="inputsection">
+        <div class="dropdown-container">
+          <h3>📸 Let’s get started ...</h3><br>
+          <button id="dropdown" onclick="toggleDropdown()" class="dropdown-btn">📉 Upload Photo</button>
+          <div id="dropdownMenu" class="dropdown-menu">
+            <button data-action="upload" id="uploadBtn">🖼️ Upload Image</button>
+            <button data-action="camera" id="capture"> 📷 Start Camera</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cameraContainer" style="display: none;">
+        <h1 class="text-center mb-4">Capture Your Outfit</h1>
+        <div class="d-flex justify-content-center mb-3">
+          <video id="video" autoplay style="max-width: 100%; border-radius: 10px;"></video>
+          <img id="imgPreview" style="display:none; max-width: 100%; border-radius: 10px;" />
+        </div>
+        <div class="d-flex justify-content-center">
+          <button id="captureBtn" class="btn btn-success">Capture Photo</button>
+        </div>
+        <form id="captureForm" action="{{ url_for('upload_image') }}" method="post" enctype="multipart/form-data" style="display:none;">
+          <input type="file" id="fileInput" name="file">
+        </form>
+      </div>
+      
+
+      <div id="uploadContainer" class="upload-box">
+       <h2>Drag & Drop an Image or Click to Upload</h2>
+        <form action="{{ url_for('upload_image') }}" method="post" enctype="multipart/form-data">
+          <input type="file" id="fileInput" name="file" class="form-control mb-2" required>
+          <button type="submit" class="btn btn-secondary">Upload Image</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+        const dropdown = document.getElementById("dropdownMenu");
+        const inputSection = document.getElementById("inputsection");
+        const uploadContainer = document.getElementById("uploadContainer");
+        const cameraContainer = document.querySelector(".cameraContainer");
+        const video = document.getElementById("video");
+        const captureBtn = document.getElementById("captureBtn");
+        const fileInput = document.getElementById("fileInput");
+        const captureForm = document.getElementById("captureForm");
+        const imgPreview = document.getElementById("imgPreview");
+      
+        let stream = null;
+        let capturedBlob = null;
+        let retakeBtn, submitBtn;
+      
+        function toggleDropdown() {
+          dropdown.style.display = dropdown.style.display === "flex" ? "none" : "flex";
+        }
+      
+        document.getElementById("dropdownMenu").addEventListener("click", (event) => {
+          const action = event.target.dataset.action;
+      
+          if (action === "upload") {
+            uploadContainer.style.display = "flex";
+            cameraContainer.style.display = "none";
+          } else if (action === "camera") {
+            startCamera();
+            cameraContainer.style.display = "block";
+            uploadContainer.style.display = "none";
+          }
+      
+          inputSection.style.display = "none";
+          dropdown.style.display = "none";
+        });
+      
+        document.addEventListener("click", (event) => {
+          if (!dropdown.contains(event.target) && event.target.id !== "dropdown") {
+            dropdown.style.display = "none";
+          }
+        });
+      
+        function startCamera() {
+          if (!stream) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+              .then(mediaStream => {
+                stream = mediaStream;
+                video.srcObject = stream;
+              })
+              .catch(() => alert("Camera access denied!"));
+          }
+        }
+      
+        captureBtn.addEventListener('click', () => {
+            captureBtn.disabled = true;
+            captureBtn.style.display = "none"; // hide after clicking
+          
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+            canvas.toBlob(blob => {
+              capturedBlob = blob;
+          
+              imgPreview.src = URL.createObjectURL(blob);
+              imgPreview.style.display = "block";
+              video.style.display = "none";
+          
+              // Retake Button
+              if (!retakeBtn) {
+                retakeBtn = document.createElement("button");
+                retakeBtn.innerText = "Retake";
+                retakeBtn.className = "btn btn-warning";
+                retakeBtn.style.margin = "10px";
+                cameraContainer.appendChild(retakeBtn);
+          
+                retakeBtn.addEventListener("click", () => {
+                  imgPreview.style.display = "none";
+                  video.style.display = "block";
+          
+                  captureBtn.style.display = "inline-block";
+                  captureBtn.disabled = false;
+          
+                  retakeBtn.style.display = "none";
+                  submitBtn.style.display = "none";
+                });
+              } else {
+                retakeBtn.style.display = "inline-block";
+              }
+          
+              // Submit Button
+              if (!submitBtn) {
+                submitBtn = document.createElement("button");
+                submitBtn.innerText = "Submit";
+                submitBtn.className = "btn btn-success";
+                submitBtn.style.margin = "10px";
+                cameraContainer.appendChild(submitBtn);
+          
+                submitBtn.addEventListener("click", () => {
+                  const file = new File([capturedBlob], 'captured.jpg', { type: 'image/jpeg' });
+                  const dt = new DataTransfer();
+                  dt.items.add(file);
+                  fileInput.files = dt.files;
+                  captureForm.submit();
+                });
+              } else {
+                submitBtn.style.display = "inline-block";
+              }
+            }, 'image/jpeg');
+          });
+          
+
+      </script>
+      
+</body>
+</html>

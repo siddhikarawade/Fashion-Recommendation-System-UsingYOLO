@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' 
+      rel="stylesheet"/>
+      <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Fashion Recommendation</title>
+  </head>
+  <body>
+      <header class="header">
+        <nav class="navbar">
+          <div class="navdiv">
+            <div class="logo">
+              <a href="{{ url_for('home') }}">Fashion Recommendation</a>
+            </div>
+            <ul class="nav__links">
+              <li class="link"><a href="{{ url_for('home') }}"><i class='bx bxs-home'></i>Home</a></li>
+              <li>
+                <a class="btn1" style="margin-left: 15px;" href="{{ url_for('login') }}">SIGN IN</a>
+              </li>
+              <li>
+                <a class="btn1" style="margin-left: 15px;" href="{{ url_for('register') }}">SIGN UP</a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+        
+      </header>
+      
+      <div class="container">
+      <div class="wrapper">
+          <form action="/login" method="POST">
+            <h1>Login</h1>
+            <div class="input-box">
+              <input type="text" name="username"  id="username" placeholder="Username" required>
+              <i class='bx bxs-user'></i>
+            </div>
+            <div class="input-box">
+              <input type="password"  name="password" id="password" placeholder="Password" required>
+              <i class='bx bxs-lock-alt' ></i>
+            </div>
+            <!--
+            <div class="remember-forgot">
+              <label><input type="checkbox">Remember Me</label>
+              <a href="#">Forgot Password</a>
+            </div>
+            -->
+            <button type="submit" class="btn">Login</button>
+            <div class="register-link">
+              <p>Don't have an account? <a href="/register">Register</a></p>
+            </div>
+          </form>
+          
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <!--<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close"> 
+                  <span aria-hidden="true">&times;</span>
+                </button> 
+              </div>-->
+            {% endfor %}
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+  </body>
+</html>
