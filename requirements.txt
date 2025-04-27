@@ -1,4 +1,9 @@
 flask
+flask-mysqldb
+mysqlclient
+Flask-Bcrypt
+Werkzeug
+opencv-python
 torch
 torchvision
 opencv-python
