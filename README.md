@@ -140,3 +140,8 @@ User Login/Register → Upload/Capture Image → Preprocessing (YOLOv8) →
 Classify (Upper/Lower/Full) → Siamese Matching → 
 
 Recommendation Results → Display Recommendations in website page
+
+---
+⚙️ Running the application
+---
+python app.py
