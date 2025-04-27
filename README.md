@@ -33,7 +33,7 @@ The recommendation engine uses cosine similarity and complementary color matchin
 fashionnew/
 
 │
-├── Database/
+├── Database(fashion_db)/
 
 │   └── users.sql                      # SQL file to manage user data
 
