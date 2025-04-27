@@ -100,7 +100,7 @@ fashionnew/
 │
 
 
-├── .gitattributes                      # For Git LFS (Large File Storage)
+├── .gitattributes                       # For Git LFS (Large File Storage)
 
 ├── app.py                               # Main Flask application
 
