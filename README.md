@@ -1,10 +1,11 @@
+---
 👗 Fashion Recommendation System Using YOLOv8
---- 
+---
 This Flask web application processes a raw clothing dataset using a YOLOv8 model.
 It segregates images into three categories — upper, lower, and full outfits — and logs approved images into a CSV file.
 If an image contains both upper and lower detections, it is also copied for optional Siamese network training.
 The recommendation engine uses cosine similarity and complementary color matching to suggest matching outfits.
----
+
 
 ---
 🚀Features
