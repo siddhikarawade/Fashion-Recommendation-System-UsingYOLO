@@ -6,7 +6,7 @@ import cv2
 from ultralytics import YOLO
 
 # Paths
-YOLO_MODEL_PATH = "C:/Users/siddhi karawade/Desktop/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt"
+YOLO_MODEL_PATH = "/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt"
 PREPROCESS_INPUT = "preprocess_input"  # raw dataset
 OUTPUT_BASE = "static/preprocessed"
 SIAMESE_FOLDER = "static/siamese_train"
