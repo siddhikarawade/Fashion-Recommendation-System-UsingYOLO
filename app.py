@@ -50,7 +50,7 @@ for sub in ['upper', 'lower', 'full']:
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Load YOLOv8 model (update path as needed)
-yolo_model = YOLO("C:/Users/siddhi karawade/Downloads/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt")
+yolo_model = YOLO("/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt")
 # Load feature extractor (e.g. ResNet50-based)
 # feature_extractor = load_feature_extractor()
 
