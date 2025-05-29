@@ -14,6 +14,7 @@ from PIL import Image
 from io import BytesIO
 from preprocess import batch_preprocess
 from recommendation_engine import recommend_from_image
+import time
 
 UPLOAD_FOLDER = 'static/uploads'
 PREPROCESS_INPUT = 'preprocess_input'
@@ -50,7 +51,7 @@ for sub in ['upper', 'lower', 'full']:
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Load YOLOv8 model (update path as needed)
-yolo_model = YOLO("/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt")
+yolo_model = YOLO("C:/Users/siddhi karawade/Desktop/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt")
 # Load feature extractor (e.g. ResNet50-based)
 # feature_extractor = load_feature_extractor()
 
@@ -133,48 +134,48 @@ def upload_image():
         try:
             # Use YOLO model to detect clothing category
             results = yolo_model(filepath)
-            # Get class names directly from results
             detected_classes = []
             for box in results[0].boxes:
                 class_id = int(box.cls[0])
                 if class_id in results[0].names:
                     detected_classes.append(results[0].names[class_id])
 
-            # Determine if upper or lower wear
             is_upper = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'upper' for cls in detected_classes)
-            is_lower = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'lower' for cls in detected_classes)
+            target_category = 'lower' if is_upper else 'upper'
 
-            # Set target category
-            if is_upper:
-                target_category = 'lower'
-            elif is_lower:
-                target_category = 'upper'
-            else:
-                # If detection fails, try to guess from filename
-                target_category = 'lower' if 'upper' in filename.lower() else 'upper'
-
-            # Get recommendations from target category
+            # Get recommendations with unique categories
             target_path = os.path.join("static", "preprocessed", target_category)
-            available_images = []
+            items_by_category = {}
             
+            # Group items by their base category
             for root, _, files in os.walk(target_path):
                 for f in files:
                     if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        img_path = os.path.join(root, f)
-                        available_images.append(img_path)
+                        base_category = f.split('_')[0].lower()  # Get category name before underscore
+                        if base_category not in items_by_category:
+                            items_by_category[base_category] = []
+                        items_by_category[base_category].append(os.path.join(root, f))
 
-            if not available_images:
+            # Select unique categories
+            available_categories = list(items_by_category.keys())
+            if not available_categories:
                 flash("No recommendations available")
                 return redirect(request.url)
 
-            # Get random recommendations
-            num_recommendations = min(6, len(available_images))
-            recommendations = random.sample(available_images, num_recommendations)
+            # Get up to 9 unique categories
+            num_categories = min(6, len(available_categories))
+            selected_categories = random.sample(available_categories, num_categories)
             
-            # Fix paths for HTML rendering
-            cleaned_recommendations = [rec.replace("\\", "/") for rec in recommendations]
+            # Get one random item from each category
+            recommendations = []
+            for category in selected_categories:
+                item = random.choice(items_by_category[category])
+                recommendations.append(item.replace('\\', '/'))
 
-            return render_template('results.html', input_img=filename, recommendations=cleaned_recommendations)
+            print(f"Selected {len(recommendations)} items from unique categories: {selected_categories}")
+            return render_template('results.html', 
+                                input_img=filename, 
+                                recommendations=recommendations)
 
         except Exception as e:
             print(f"Error processing image: {str(e)}")
@@ -217,7 +218,10 @@ def capture():
 
 
 def get_recommendations(image_path):
-    """Helper function to get recommendations based on image detection"""
+    """Helper function to get recommendations based on image detection with fresh randomization"""
+    # Seed random with current timestamp for unique selections
+    random.seed(time.time())
+    
     results = yolo_model(image_path)
     detected_classes = []
     
@@ -243,21 +247,30 @@ def get_recommendations(image_path):
     
     print("Target category:", target_category)  # Debug print
     
-    # Get recommendations
+    # Get recommendations with fresh randomization
     target_path = os.path.join("static", "preprocessed", target_category)
     available_images = []
+    used_items = set()  # Track used items
+    
     for root, _, files in os.walk(target_path):
         for f in files:
             if f.lower().endswith(('.png', '.jpg', '.jpeg')):
                 img_path = os.path.join(root, f)
-                available_images.append(img_path)
+                if img_path not in used_items:  # Only add unused items
+                    available_images.append(img_path)
+                    used_items.add(img_path)
     
     if not available_images:
         return []
-        
+    
+    # Get fresh random recommendations
     num_recommendations = min(6, len(available_images))
     recommendations = random.sample(available_images, num_recommendations)
-    return [rec.replace("\\", "/") for rec in recommendations]
+    
+    # Clear the random seed
+    random.seed()
+    
+    return [rec.replace('\\', '/') for rec in recommendations]
 
 @app.route('/process')
 def process():
