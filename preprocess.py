@@ -6,18 +6,22 @@ import cv2
 from ultralytics import YOLO
 
 # Paths
-YOLO_MODEL_PATH = "/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt"
+YOLO_MODEL_PATH = "C:/Users/siddhi karawade/Desktop/fashionnew/Training/yolov8m_fashion_finetuning/weights/best.pt"
 PREPROCESS_INPUT = "preprocess_input"  # raw dataset
-OUTPUT_BASE = "static/preprocessed"
-SIAMESE_FOLDER = "static/siamese_train"
+OUTPUT_BASE = os.path.join(os.path.dirname(__file__), "static", "preprocessed")
+SIAMESE_FOLDER = os.path.join(os.path.dirname(__file__), "static", "siamese_train")
 CSV_LOG = os.path.join("static", "approved_images.csv")
 
-# Create required directories
 def create_dirs():
-    for category in ["upper", "lower", "full"]:
-        os.makedirs(os.path.join(OUTPUT_BASE, category), exist_ok=True)
+    # Create main category folders with gender subfolders
+    for category in ["upper", "lower"]:
+        category_path = os.path.join(OUTPUT_BASE, category)
+        for gender in ["men", "women", "unisex"]:
+            path = os.path.join(category_path, gender)
+            os.makedirs(path, exist_ok=True)
+            print(f"Created directory: {path}")
+    
     os.makedirs(os.path.join(OUTPUT_BASE, "full", "women"), exist_ok=True)
-    os.makedirs(os.path.join(OUTPUT_BASE, "full", "men"), exist_ok=True)
     os.makedirs(SIAMESE_FOLDER, exist_ok=True)
 
 create_dirs()
@@ -53,6 +57,30 @@ def get_dominant_color(image):
     elif b > 200: return "blue"
     elif r > 200 and g > 200: return "yellow"
     else: return "mixed"
+
+# Add gender mapping
+GENDER_MAPPING = {
+    'Blouse': 'women',
+    'Cardigan': 'unisex',
+    'Hoodie': 'unisex',
+    'Long-sleeves': 'unisex',
+    'Pk-shirts': 'men',
+    'Shirts': 'men',
+    'Short-sleeves': 'unisex',
+    'Sleeveless': 'women',
+    'T-shirts': 'unisex',
+    'Denim-pants': 'men',
+    'Long-skirt': 'women',
+    'Midi-skirts': 'women',
+    'Short-skirt': 'women',
+    'Shorts': 'unisex',
+    'Slacks': 'men',
+    'Slim-pants': 'unisex',
+    'Straight-pants': 'men',
+    'Sweatpants': 'unisex',
+    'Training-pants': 'unisex',
+    'One-piece': 'women'
+}
 
 # Process a single image; return list of processed items info.
 def process_image(img_path):
@@ -91,27 +119,40 @@ def process_image(img_path):
         if detected_class in FULL_CLASSES:
             full_detects.append((detected_class, crop))
     
-    # For upper and lower: save image with filename = <class>.jpg (overwrite if exists)
+    # For upper wear
     for det in upper_detects:
         class_label, crop = det
         color = get_dominant_color(crop)
-        dest_dir = os.path.join(OUTPUT_BASE, "upper")
-        os.makedirs(dest_dir, exist_ok=True)
-        new_filename = f"{class_label}.jpg"   # single file per detection type
-        save_path = os.path.join(dest_dir, new_filename)
-        cv2.imwrite(save_path, crop)
-        processed.append((new_filename, "upper", class_label, color, "unisex", save_path))
+        gender = GENDER_MAPPING.get(class_label, 'unisex')
         
+        # Save in gender-specific subfolder
+        dest_dir = os.path.join(OUTPUT_BASE, "upper", gender)
+        os.makedirs(dest_dir, exist_ok=True)
+        
+        count = len([f for f in os.listdir(dest_dir) if f.startswith(class_label)])
+        new_filename = f"{class_label}_{count + 1}.jpg"
+        save_path = os.path.join(dest_dir, new_filename).replace('\\', '/')
+        
+        cv2.imwrite(save_path, crop)
+        processed.append((new_filename, "upper", class_label, color, gender, save_path))
+
+    # For lower wear
     for det in lower_detects:
         class_label, crop = det
         color = get_dominant_color(crop)
-        dest_dir = os.path.join(OUTPUT_BASE, "lower")
-        os.makedirs(dest_dir, exist_ok=True)
-        new_filename = f"{class_label}.jpg"
-        save_path = os.path.join(dest_dir, new_filename)
-        cv2.imwrite(save_path, crop)
-        processed.append((new_filename, "lower", class_label, color, "unisex", save_path))
+        gender = GENDER_MAPPING.get(class_label, 'unisex')
         
+        # Save in gender-specific subfolder
+        dest_dir = os.path.join(OUTPUT_BASE, "lower", gender)
+        os.makedirs(dest_dir, exist_ok=True)
+        
+        count = len([f for f in os.listdir(dest_dir) if f.startswith(class_label)])
+        new_filename = f"{class_label}_{count + 1}.jpg"
+        save_path = os.path.join(dest_dir, new_filename).replace('\\', '/')
+        
+        cv2.imwrite(save_path, crop)
+        processed.append((new_filename, "lower", class_label, color, gender, save_path))
+
     # For full: save with numeric indices.
     for det in full_detects:
         class_label, crop = det
