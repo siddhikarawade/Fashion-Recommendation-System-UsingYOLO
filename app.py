@@ -9,7 +9,7 @@ import torch
 import random 
 import random
 from ultralytics import YOLO
-import base64
+# import base64
 from PIL import Image
 from io import BytesIO
 from preprocess import batch_preprocess
@@ -115,192 +115,232 @@ def option_page():
 #     flash(msg)
 #     return redirect(url_for('admin'))
 
-@app.route('/results', methods=['POST'])
+@app.route('/results', methods=['GET', 'POST'])
 def upload_image():
-    if 'file' not in request.files:
-        flash("No file part")
-        return redirect(request.url)
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash("No file selected")
-        return redirect(request.url)
-    
-    if file:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-
-        try:
-            # Use YOLO model to detect clothing category
-            results = yolo_model(filepath)
-            detected_classes = []
-            for box in results[0].boxes:
-                class_id = int(box.cls[0])
-                if class_id in results[0].names:
-                    detected_classes.append(results[0].names[class_id])
-
-            is_upper = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'upper' for cls in detected_classes)
-            target_category = 'lower' if is_upper else 'upper'
-
-            # Get recommendations with unique categories
-            target_path = os.path.join("static", "preprocessed", target_category)
-            items_by_category = {}
-            
-            # Group items by their base category
-            for root, _, files in os.walk(target_path):
-                for f in files:
-                    if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        base_category = f.split('_')[0].lower()  # Get category name before underscore
-                        if base_category not in items_by_category:
-                            items_by_category[base_category] = []
-                        items_by_category[base_category].append(os.path.join(root, f))
-
-            # Select unique categories
-            available_categories = list(items_by_category.keys())
-            if not available_categories:
-                flash("No recommendations available")
-                return redirect(request.url)
-
-            # Get up to 9 unique categories
-            num_categories = min(6, len(available_categories))
-            selected_categories = random.sample(available_categories, num_categories)
-            
-            # Get one random item from each category
-            recommendations = []
-            for category in selected_categories:
-                item = random.choice(items_by_category[category])
-                recommendations.append(item.replace('\\', '/'))
-
-            print(f"Selected {len(recommendations)} items from unique categories: {selected_categories}")
-            return render_template('results.html', 
-                                input_img=filename, 
-                                recommendations=recommendations)
-
-        except Exception as e:
-            print(f"Error processing image: {str(e)}")
-            flash("Error processing image. Please try again.")
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash("No file part")
             return redirect(request.url)
 
+        file = request.files['file']
+        if file.filename == '':
+            flash("No file selected")
+            return redirect(request.url)
 
-@app.route('/capture', methods=['POST'])
-def capture():
+        if file:
+            filename = secure_filename(file.filename)
+
+            # Save to a fixed path for captured image or dynamic for uploaded
+            if filename == 'captured.jpg':
+                filename = 'captured.jpg'  # Always overwrite the same file
+            else:
+                # filename = f"user_{int(time.time())}_{filename}"  # Optional unique name
+                filename = secure_filename(file.filename)
+
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+
+            session['last_image'] = filename
+            return redirect(url_for('upload_image'))
+
+    # GET request (e.g. refresh)
+    filename = session.get('last_image')
+    if not filename:
+        flash("No image found for recommendation.")
+        return redirect(url_for('option_page'))
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    # ✅ Validation: OpenCV checks for blank or dark images
     try:
-        data = request.get_json()
-        print("Received data:", data)
+        import cv2
+        import numpy as np
 
-        if not data or "image" not in data:
-            return jsonify({"message": "No image data received"}), 400
+        img = cv2.imread(filepath)
 
-        image_data = data["image"]
-        if "," not in image_data:
-            return jsonify({"message": "Invalid image format"}), 400
+        if img is None:
+            flash("Could not read the image. Try again.")
+            return redirect(url_for('option_page'))
 
-        header, encoded = image_data.split(",", 1)
-        image_bytes = base64.b64decode(encoded)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        variance = np.var(gray)
+        brightness = np.mean(gray)
 
-        try:
-            image = Image.open(BytesIO(image_bytes))
-        except Exception as e:
-            print("PIL error:", e)
-            return jsonify({"message": "Could not decode image"}), 400
+        # ✅ Thresholds can be tuned
+        if variance < 15 or brightness < 20:
+            flash("Image too dark or blank. Please capture or upload a clearer outfit image.")
+            return redirect(url_for('option_page'))
+    except Exception as e:
+        print("OpenCV check failed:", str(e))
+        flash("Failed to analyze image.")
+        return redirect(url_for('option_page'))
 
-        global current_image_path
-        current_image_path = os.path.join(UPLOAD_DIR, "captured.jpg")
-        image.save(current_image_path)
+    try:
+        # YOLO prediction
+        results = yolo_model(filepath)
+        detected_classes = []
+        for box in results[0].boxes:
+            class_id = int(box.cls[0])
+            if class_id in results[0].names:
+                detected_classes.append(results[0].names[class_id])
 
-        print("✅ Image saved at:", current_image_path)
-        return jsonify({ "redirect": url_for("process") })
+        # ✅ Extra check: No clothing detected
+        if not detected_classes:
+            flash("No clothing detected in the image. Please try a clearer image.")
+            return redirect(url_for('option_page'))
+
+        is_upper = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'upper' for cls in detected_classes)
+        target_category = 'lower' if is_upper else 'upper'
+
+        # Prepare recommendation directory
+        target_path = os.path.join("static", "preprocessed", target_category)
+        items_by_category = {}
+
+        for root, _, files in os.walk(target_path):
+            for f in files:
+                if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    base_category = f.split('_')[0].lower()
+                    items_by_category.setdefault(base_category, []).append(os.path.join(root, f))
+
+        available_categories = list(items_by_category.keys())
+        if not available_categories:
+            flash("No recommendations available.")
+            return redirect(url_for('option_page'))
+
+        selected_categories = random.sample(available_categories, min(6, len(available_categories)))
+        recommendations = [random.choice(items_by_category[cat]).replace('\\', '/') for cat in selected_categories]
+
+        print(f"Selected {len(recommendations)} items from unique categories: {selected_categories}")
+
+        return render_template('results.html',
+                               input_img=filename,
+                               recommendations=recommendations)
 
     except Exception as e:
-        print("❌ Unexpected capture error:", e)
-        return jsonify({"message": "Failed to process image"}), 500
-
-
-def get_recommendations(image_path):
-    """Helper function to get recommendations based on image detection with fresh randomization"""
-    # Seed random with current timestamp for unique selections
-    random.seed(time.time())
-    
-    results = yolo_model(image_path)
-    detected_classes = []
-    
-    # Get detected classes
-    for box in results[0].boxes:
-        class_id = int(box.cls[0])
-        class_name = results[0].names[class_id]
-        detected_classes.append(class_name)
-    
-    print("Detected classes:", detected_classes)  # Debug print
-    
-    # Determine category
-    is_upper = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'upper' for cls in detected_classes)
-    is_lower = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'lower' for cls in detected_classes)
-    
-    # Set opposite category for recommendations
-    if is_upper:
-        target_category = 'lower'
-    elif is_lower:
-        target_category = 'upper'
-    else:
-        target_category = random.choice(['upper', 'lower'])
-    
-    print("Target category:", target_category)  # Debug print
-    
-    # Get recommendations with fresh randomization
-    target_path = os.path.join("static", "preprocessed", target_category)
-    available_images = []
-    used_items = set()  # Track used items
-    
-    for root, _, files in os.walk(target_path):
-        for f in files:
-            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                img_path = os.path.join(root, f)
-                if img_path not in used_items:  # Only add unused items
-                    available_images.append(img_path)
-                    used_items.add(img_path)
-    
-    if not available_images:
-        return []
-    
-    # Get fresh random recommendations
-    num_recommendations = min(6, len(available_images))
-    recommendations = random.sample(available_images, num_recommendations)
-    
-    # Clear the random seed
-    random.seed()
-    
-    return [rec.replace('\\', '/') for rec in recommendations]
-
-@app.route('/process')
-def process():
-    if not current_image_path or not os.path.exists(current_image_path):
-        flash("No image captured")
-        return redirect(url_for('camera'))
-    
-    try:
-        recommendations = get_recommendations(current_image_path)
-        if not recommendations:
-            flash("No recommendations available")
-            return redirect(url_for('camera'))
-        
-        # Get relative path for captured image
-        relative_path = os.path.relpath(current_image_path, BASE_DIR).replace("\\", "/")
-        
-        return render_template('results.html', 
-                             input_img=relative_path,
-                             recommendations=recommendations)
-                             
-    except Exception as e:
-        print(f"Error processing camera image: {str(e)}")
+        print(f"Error processing image: {str(e)}")
         flash("Error processing image. Please try again.")
-        return redirect(url_for('camera'))
+        return redirect(url_for('option_page'))
 
 
-@app.route('/camera', methods=['GET'])
-def camera():
-    # Displays camera capture interface (see camera.html)
-    return render_template('camera.html')
+
+# @app.route('/capture', methods=['POST'])
+# def capture():
+#     try:
+#         data = request.get_json()
+#         print("Received data:", data)
+
+#         if not data or "image" not in data:
+#             return jsonify({"message": "No image data received"}), 400
+
+#         image_data = data["image"]
+#         if "," not in image_data:
+#             return jsonify({"message": "Invalid image format"}), 400
+
+#         header, encoded = image_data.split(",", 1)
+#         image_bytes = base64.b64decode(encoded)
+
+#         try:
+#             image = Image.open(BytesIO(image_bytes))
+#         except Exception as e:
+#             print("PIL error:", e)
+#             return jsonify({"message": "Could not decode image"}), 400
+
+#         global current_image_path
+#         current_image_path = os.path.join(UPLOAD_DIR, "captured.jpg")
+#         image.save(current_image_path)
+
+#         print("✅ Image saved at:", current_image_path)
+#         return jsonify({ "redirect": url_for("process") })
+
+#     except Exception as e:
+#         print("❌ Unexpected capture error:", e)
+#         return jsonify({"message": "Failed to process image"}), 500
+
+
+# def get_recommendations(image_path):
+#     """Helper function to get recommendations based on image detection with fresh randomization"""
+#     # Seed random with current timestamp for unique selections
+#     random.seed(time.time())
+    
+#     results = yolo_model(image_path)
+#     detected_classes = []
+    
+#     # Get detected classes
+#     for box in results[0].boxes:
+#         class_id = int(box.cls[0])
+#         class_name = results[0].names[class_id]
+#         detected_classes.append(class_name)
+    
+#     print("Detected classes:", detected_classes)  # Debug print
+    
+#     # Determine category
+#     is_upper = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'upper' for cls in detected_classes)
+#     is_lower = any(cls in CLASS_CATEGORY_MAPPING and CLASS_CATEGORY_MAPPING[cls] == 'lower' for cls in detected_classes)
+    
+#     # Set opposite category for recommendations
+#     if is_upper:
+#         target_category = 'lower'
+#     elif is_lower:
+#         target_category = 'upper'
+#     else:
+#         target_category = random.choice(['upper', 'lower'])
+    
+#     print("Target category:", target_category)  # Debug print
+    
+#     # Get recommendations with fresh randomization
+#     target_path = os.path.join("static", "preprocessed", target_category)
+#     available_images = []
+#     used_items = set()  # Track used items
+    
+#     for root, _, files in os.walk(target_path):
+#         for f in files:
+#             if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+#                 img_path = os.path.join(root, f)
+#                 if img_path not in used_items:  # Only add unused items
+#                     available_images.append(img_path)
+#                     used_items.add(img_path)
+    
+#     if not available_images:
+#         return []
+    
+#     # Get fresh random recommendations
+#     num_recommendations = min(6, len(available_images))
+#     recommendations = random.sample(available_images, num_recommendations)
+    
+#     # Clear the random seed
+#     random.seed()
+    
+#     return [rec.replace('\\', '/') for rec in recommendations]
+
+# @app.route('/process')
+# def process():
+#     if not current_image_path or not os.path.exists(current_image_path):
+#         flash("No image captured")
+#         return redirect(url_for('camera'))
+    
+#     try:
+#         recommendations = get_recommendations(current_image_path)
+#         if not recommendations:
+#             flash("No recommendations available")
+#             return redirect(url_for('camera'))
+        
+#         # Get relative path for captured image
+#         relative_path = os.path.relpath(current_image_path, BASE_DIR).replace("\\", "/")
+        
+#         return render_template('results.html', 
+#                              input_img=relative_path,
+#                              recommendations=recommendations)
+                             
+#     except Exception as e:
+#         print(f"Error processing camera image: {str(e)}")
+#         flash("Error processing image. Please try again.")
+#         return redirect(url_for('results'))
+
+
+# @app.route('/camera', methods=['GET'])
+# def camera():
+#     # Displays camera capture interface (see camera.html)
+#     return render_template('camera.html')
 
 @app.route('/logout')
 def logout():
