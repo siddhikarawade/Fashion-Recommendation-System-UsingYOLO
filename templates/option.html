@@ -111,8 +111,19 @@
             <button data-action="upload" id="uploadBtn">🖼️ Upload Image</button>
             <button data-action="camera" id="capture"> 📷 Start Camera</button>
           </div>
+          {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul style="color: red; font-weight: bold; margin-top: 20px;">
+              {% for message in messages %}
+                <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% endwith %}
         </div>
+
       </div>
+
 
       <div class="cameraContainer" style="display: none;">
         <h1 class="text-center mb-4">Capture Your Outfit</h1>
@@ -127,7 +138,6 @@
           <input type="file" id="fileInput" name="file">
         </form>
       </div>
-      
 
       <div id="uploadContainer" class="upload-box">
        <h2>Drag & Drop an Image or Click to Upload</h2>
@@ -136,9 +146,10 @@
           <button type="submit" class="btn btn-secondary">Upload Image</button>
         </form>
       </div>
-
     </div>
+
   </div>
+
 
   <script>
         const dropdown = document.getElementById("dropdownMenu");
@@ -192,7 +203,7 @@
           }
         }
       
-        captureBtn.addEventListener('click', () => {
+          captureBtn.addEventListener('click', () => {
             captureBtn.disabled = true;
             captureBtn.style.display = "none"; // hide after clicking
           
